@@ -81,7 +81,6 @@ def punch_in(emp_id):
     finally:
         conn.close()
 
-# Punch Out
 def punch_out(emp_id):
     conn = get_connection()
     cursor = conn.cursor()
@@ -94,7 +93,8 @@ def punch_out(emp_id):
     cursor.execute("SELECT punch_in FROM attendance WHERE employee_id=%s AND date=%s", (emp_id, today))
     row = cursor.fetchone()
     if row and row[0]:
-        punch_in_time = row[0]
+        # Convert punch_in_time to timezone-aware IST
+        punch_in_time = row[0].replace(tzinfo=timezone('Asia/Kolkata'))
         man_hours = round((now_ist - punch_in_time).total_seconds() / 3600, 2)
         cursor.execute("UPDATE attendance SET punch_out=%s, man_hours=%s WHERE employee_id=%s AND date=%s",
                        (now_ist, man_hours, emp_id, today))
