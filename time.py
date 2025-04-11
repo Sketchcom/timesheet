@@ -3,8 +3,6 @@ import mysql.connector
 from fpdf import FPDF
 import os
 from datetime import datetime, timedelta, date
-from pytz import timezone, utc
-
 
 
 # MySQL Connection
@@ -68,16 +66,12 @@ def punch_in(emp_id):
     conn = get_connection()
     cursor = conn.cursor()
     today = date.today()
-
-    # Get current time in IST
-    now_utc = datetime.now(utc)
-    now_ist = now_utc.astimezone(timezone('Asia/Kolkata')).time()
-
+    now = datetime.now()
     try:
         cursor.execute("INSERT INTO attendance (employee_id, date, punch_in) VALUES (%s, %s, %s)",
-                       (emp_id, today, now_ist))
+                       (emp_id, today, now))
         conn.commit()
-        return f"Punched in at {now_ist.strftime('%H:%M:%S')} (IST)"
+        return "Punched in at " + now.strftime("%H:%M:%S")
     except mysql.connector.IntegrityError:
         return "Already punched in today."
     finally:
@@ -88,22 +82,18 @@ def punch_out(emp_id):
     conn = get_connection()
     cursor = conn.cursor()
     today = date.today()
-
-    # Get current time in IST
-    now_utc = datetime.now(utc)
-    now_ist = now_utc.astimezone(timezone('Asia/Kolkata')).time()
+    now = datetime.now()
 
     cursor.execute("SELECT punch_in FROM attendance WHERE employee_id=%s AND date=%s", (emp_id, today))
     row = cursor.fetchone()
     if row and row[0]:
-        punch_in_time = datetime.combine(today, row[0])
-        punch_out_time = datetime.combine(today, now_ist)
-        man_hours = round((punch_out_time - punch_in_time).total_seconds() / 3600, 2)
+        punch_in_time = row[0]
+        man_hours = round((now - punch_in_time).total_seconds() / 3600, 2)
         cursor.execute("UPDATE attendance SET punch_out=%s, man_hours=%s WHERE employee_id=%s AND date=%s",
-                       (now_ist, man_hours, emp_id, today))
+                       (now, man_hours, emp_id, today))
         conn.commit()
         conn.close()
-        return f"Punched out at {now_ist.strftime('%H:%M:%S')} (IST) | Man-hours: {man_hours}"
+        return f"Punched out at {now.strftime('%H:%M:%S')} | Man-hours: {man_hours}"
     else:
         conn.close()
         return "Punch in first before punching out."
@@ -279,7 +269,7 @@ else:
     with st.expander(""):
         today = datetime.today()
         month = st.selectbox("Select Month", range(1, 13), index=today.month - 1)
-        year = st.selectbox("Select Year", range(2023, today.year + 1), index=1)
+        year = st.selectbox("Select Year", range(2025, today.year + 1), index=1)
 
         if st.button("📤 Generate Timesheet PDF"):
             timesheet = fetch_timesheet(st.session_state.user_id, month, year)
