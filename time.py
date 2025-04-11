@@ -160,7 +160,7 @@ def generate_pdf(username, data, month, year):
                 self.set_font("Arial", "IB", 8)
                 self.cell(0, 4, (f"PO Number: 7200072525"), ln=True, align="L", fill=1)
                 self.cell(0, 4,(f"Project Name: AVEVA E3D Modelling"), ln=True, align="L", fill=1)
-                logo_path = "logo/sketch.png"
+                logo_path = "logo/logo.png"
                 self.image(logo_path, 11, 5, 15)
 
                 self.ln(5)
@@ -264,23 +264,25 @@ else:
 
     st.divider()
     st.subheader("📅 Monthly Timesheet")
-    today = datetime.today()
-    month = st.selectbox("Select Month", range(1, 13), index=today.month - 1)
-    year = st.selectbox("Select Year", range(2023, today.year + 1), index=1)
+    st.expander("View and Download Timesheet", expanded=True)
+    with st.expander(""):
+        today = datetime.today()
+        month = st.selectbox("Select Month", range(1, 13), index=today.month - 1)
+        year = st.selectbox("Select Year", range(2023, today.year + 1), index=1)
 
-    if st.button("📤 Generate Timesheet PDF"):
-        timesheet = fetch_timesheet(st.session_state.user_id, month, year)
-        if timesheet:
-            # Convert the timesheet to a pandas DataFrame
-            import pandas as pd
-            timesheet_df = pd.DataFrame(timesheet, columns=["date", "punch_in", "punch_out", "man_hours"])
-            
-            # Generate the PDF
-            pdf_file = generate_pdf(st.session_state.username, timesheet_df, month, year)
-            with open(pdf_file, "rb") as f:
-                st.download_button("📥 Download PDF", data=f, file_name=os.path.basename(pdf_file))
-        else:
-            st.warning("No attendance data available for the selected month.")
+        if st.button("📤 Generate Timesheet PDF"):
+            timesheet = fetch_timesheet(st.session_state.user_id, month, year)
+            if timesheet:
+                # Convert the timesheet to a pandas DataFrame
+                import pandas as pd
+                timesheet_df = pd.DataFrame(timesheet, columns=["date", "punch_in", "punch_out", "man_hours"])
+                
+                # Generate the PDF
+                pdf_file = generate_pdf(st.session_state.username, timesheet_df, month, year)
+                with open(pdf_file, "rb") as f:
+                    st.download_button("📥 Download PDF", data=f, file_name=os.path.basename(pdf_file))
+            else:
+                st.warning("No attendance data available for the selected month.")
 
     if st.button("🚪 Logout"):
         st.session_state.logged_in = False
