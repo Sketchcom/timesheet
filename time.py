@@ -3,7 +3,7 @@ import mysql.connector
 from fpdf import FPDF
 import os
 from datetime import datetime, timedelta, date
-
+from pytz import timezone, utc  # For timezone conversion
 
 # MySQL Connection
 def get_connection():
@@ -66,12 +66,16 @@ def punch_in(emp_id):
     conn = get_connection()
     cursor = conn.cursor()
     today = date.today()
-    now = datetime.now()
+
+    # Get current time in IST
+    now_utc = datetime.now(utc)
+    now_ist = now_utc.astimezone(timezone('Asia/Kolkata'))
+
     try:
         cursor.execute("INSERT INTO attendance (employee_id, date, punch_in) VALUES (%s, %s, %s)",
-                       (emp_id, today, now))
+                       (emp_id, today, now_ist))
         conn.commit()
-        return "Punched in at " + now.strftime("%H:%M:%S")
+        return "Punched in at " + now_ist.strftime("%H:%M:%S") + " (IST)"
     except mysql.connector.IntegrityError:
         return "Already punched in today."
     finally:
@@ -82,18 +86,21 @@ def punch_out(emp_id):
     conn = get_connection()
     cursor = conn.cursor()
     today = date.today()
-    now = datetime.now()
+
+    # Get current time in IST
+    now_utc = datetime.now(utc)
+    now_ist = now_utc.astimezone(timezone('Asia/Kolkata'))
 
     cursor.execute("SELECT punch_in FROM attendance WHERE employee_id=%s AND date=%s", (emp_id, today))
     row = cursor.fetchone()
     if row and row[0]:
         punch_in_time = row[0]
-        man_hours = round((now - punch_in_time).total_seconds() / 3600, 2)
+        man_hours = round((now_ist - punch_in_time).total_seconds() / 3600, 2)
         cursor.execute("UPDATE attendance SET punch_out=%s, man_hours=%s WHERE employee_id=%s AND date=%s",
-                       (now, man_hours, emp_id, today))
+                       (now_ist, man_hours, emp_id, today))
         conn.commit()
         conn.close()
-        return f"Punched out at {now.strftime('%H:%M:%S')} | Man-hours: {man_hours}"
+        return f"Punched out at {now_ist.strftime('%H:%M:%S')} (IST) | Man-hours: {man_hours}"
     else:
         conn.close()
         return "Punch in first before punching out."
@@ -118,6 +125,7 @@ def fetch_timesheet(emp_id, month, year):
 # Generate PDF
 def format_date(date):
     return f"{date.strftime('%d %b %Y')}"
+
 def generate_pdf(username, data, month, year):
     from fpdf import FPDF
     import pandas as pd
@@ -145,26 +153,26 @@ def generate_pdf(username, data, month, year):
             self.year = year
 
         def header(self):
-                self.set_y(4)
-                self.set_fill_color(12, 12, 62)
-                self.set_font("Arial", "B", 14)
-                self.set_text_color(255, 255, 255)
-                self.cell(0, 6, ("SKETCHCOM ENGINEERING & DESIGN PRIVATE LIMITED"), ln=True, align="C", fill=1)
-                self.set_font("Arial", "B", 12)
-                import calendar
-                month_name = calendar.month_abbr[self.month]
-                self.cell(0, 10, f"Timesheet Report - {self.username} - {month_name}-{self.year}", ln=True, align="C", fill=1)
-                self.set_font("Arial", "B", 10)
-                self.set_text_color(255, 255, 255)
-                self.cell(0, 6, (f"Client Name:  L&T Energy Hydrocarbon (LTEH), Offshore, Mumbai, Maharashtra"), ln=True, fill=1)
-                self.set_text_color(240, 240, 240)
-                self.set_font("Arial", "IB", 8)
-                self.cell(0, 4, (f"PO Number: 7200072525"), ln=True, align="L", fill=1)
-                self.cell(0, 4,(f"Project Name: AVEVA E3D Modelling"), ln=True, align="L", fill=1)
-                logo_path = "logo/logo.png"
-                self.image(logo_path, 11, 5, 15)
+            self.set_y(4)
+            self.set_fill_color(12, 12, 62)
+            self.set_font("Arial", "B", 14)
+            self.set_text_color(255, 255, 255)
+            self.cell(0, 6, ("SKETCHCOM ENGINEERING & DESIGN PRIVATE LIMITED"), ln=True, align="C", fill=1)
+            self.set_font("Arial", "B", 12)
+            import calendar
+            month_name = calendar.month_abbr[self.month]
+            self.cell(0, 10, f"Timesheet Report - {self.username} - {month_name}-{self.year}", ln=True, align="C", fill=1)
+            self.set_font("Arial", "B", 10)
+            self.set_text_color(255, 255, 255)
+            self.cell(0, 6, (f"Client Name:  L&T Energy Hydrocarbon (LTEH), Offshore, Mumbai, Maharashtra"), ln=True, fill=1)
+            self.set_text_color(240, 240, 240)
+            self.set_font("Arial", "IB", 8)
+            self.cell(0, 4, (f"PO Number: 7200072525"), ln=True, align="L", fill=1)
+            self.cell(0, 4, (f"Project Name: AVEVA E3D Modelling"), ln=True, align="L", fill=1)
+            logo_path = "logo/logo.png"
+            self.image(logo_path, 11, 5, 15)
+            self.ln(5)
 
-                self.ln(5)
     # Initialize the PDF
     pdf = PDF(username, month, year)
     pdf.add_page()
@@ -173,8 +181,8 @@ def generate_pdf(username, data, month, year):
     pdf.set_fill_color(122, 121, 123)
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(40, 10, "Date", 1, align="C", fill=1)
-    pdf.cell(55, 10, "Punch In", 1,   align="C", fill=1)
-    pdf.cell(55, 10, "Punch Out", 1,  align="C", fill=1)
+    pdf.cell(55, 10, "Punch In", 1, align="C", fill=1)
+    pdf.cell(55, 10, "Punch Out", 1, align="C", fill=1)
     pdf.cell(40, 10, "Man Hours", 1, align="C", fill=1)
     pdf.ln()
 
@@ -212,8 +220,8 @@ def generate_pdf(username, data, month, year):
     filename = os.path.join(directory, f"{username}_{month}_{year}.pdf")
     pdf.output(filename)
     return filename
-# -------------------- Streamlit UI --------------------
 
+# -------------------- Streamlit UI --------------------
 st.set_page_config(page_title="Attendance Tracker", layout="centered")
 init_db()
 
@@ -250,40 +258,35 @@ if not st.session_state.logged_in:
                 st.error("Username already exists!")
 
 else:
-    st.success(f"Welcome, {st.session_state.username} ")
+    st.success(f"Welcome, {st.session_state.username} 👋")
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button(" Punch In"):
+        if st.button("☀️ Punch In"):
             msg = punch_in(st.session_state.user_id)
             st.info(msg)
 
     with col2:
-        if st.button(" Punch Out"):
+        if st.button("🌙 Punch Out"):
             msg = punch_out(st.session_state.user_id)
             st.info(msg)
 
     st.divider()
-    st.subheader(" Monthly Timesheet")
-    st.expander("View and Download Timesheet", expanded=True)
-    with st.expander(""):
-        today = datetime.today()
-        month = st.selectbox("Select Month", range(1, 13), index=today.month - 1)
-        year = st.selectbox("Select Year", range(2023, today.year + 1), index=1)
+    st.subheader("📅 Monthly Timesheet")
+    today = datetime.today()
+    month = st.selectbox("Select Month", range(1, 13), index=today.month - 1)
+    year = today.year
 
-        if st.button("📤 Generate Timesheet PDF"):
-            timesheet = fetch_timesheet(st.session_state.user_id, month, year)
-            if timesheet:
-                # Convert the timesheet to a pandas DataFrame
-                import pandas as pd
-                timesheet_df = pd.DataFrame(timesheet, columns=["date", "punch_in", "punch_out", "man_hours"])
-                
-                # Generate the PDF
-                pdf_file = generate_pdf(st.session_state.username, timesheet_df, month, year)
-                with open(pdf_file, "rb") as f:
-                    st.download_button("📥 Download PDF", data=f, file_name=os.path.basename(pdf_file))
-            else:
-                st.warning("No attendance data available for the selected month.")
+    if st.button("📤 Generate Timesheet PDF"):
+        timesheet = fetch_timesheet(st.session_state.user_id, month, year)
+        if timesheet:
+            import pandas as pd
+            timesheet_df = pd.DataFrame(timesheet, columns=["date", "punch_in", "punch_out", "man_hours"])
+            pdf_file = generate_pdf(st.session_state.username, timesheet_df, month, year)
+            with open(pdf_file, "rb") as f:
+                st.download_button("📥 Download PDF", data=f, file_name=os.path.basename(pdf_file))
+        else:
+            st.warning("No attendance data available for the selected month.")
 
     if st.button("🚪 Logout"):
         st.session_state.logged_in = False
