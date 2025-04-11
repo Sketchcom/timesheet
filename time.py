@@ -7,10 +7,10 @@ from datetime import datetime, timedelta, date
 # MySQL Connection
 def get_connection():
     return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="Rajput@123",
-        database="comtoolsdb"
+        host="sg2plzcpnl490951.prod.sin2.secureserver.net",
+        user="it",
+        password="sketch@1234",
+        database="Progress_report_calculation"
     )
 
 # Initialize DB and Tables
