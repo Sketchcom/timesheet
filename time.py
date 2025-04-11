@@ -269,7 +269,7 @@ else:
     with st.expander(""):
         today = datetime.today()
         month = st.selectbox("Select Month", range(1, 13), index=today.month - 1)
-        year = st.selectbox("Select Year", range(2025, today.year + 1), index=1)
+        year = st.selectbox("Select Year", range(2023, today.year + 1), index=1)
 
         if st.button("📤 Generate Timesheet PDF"):
             timesheet = fetch_timesheet(st.session_state.user_id, month, year)
