@@ -127,9 +127,6 @@ def format_date(date):
     return f"{date.strftime('%d %b %Y')}"
 
 def generate_pdf(username, data, month, year):
-    from fpdf import FPDF
-    import pandas as pd
-    import os
 
     # Ensure 'data' is a DataFrame
     if not isinstance(data, pd.DataFrame):
@@ -140,6 +137,13 @@ def generate_pdf(username, data, month, year):
         data['date'] = pd.to_datetime(data['date'], errors='coerce')
     else:
         raise ValueError("The 'data' DataFrame must contain a 'date' column.")
+
+    # Convert punch_in and punch_out to IST
+    ist = timezone('Asia/Kolkata')
+    if 'punch_in' in data.columns:
+        data['punch_in'] = pd.to_datetime(data['punch_in'], errors='coerce').dt.tz_localize('UTC').dt.tz_convert(ist)
+    if 'punch_out' in data.columns:
+        data['punch_out'] = pd.to_datetime(data['punch_out'], errors='coerce').dt.tz_localize('UTC').dt.tz_convert(ist)
 
     # Sort the data by the 'date' column
     data = data.sort_values(by='date', ascending=True).reset_index(drop=True)
